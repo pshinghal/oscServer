@@ -1,6 +1,6 @@
 /*
 listenUdp execution:
-node listenUdp [localPort]
+node listenUdp.js [localPort]
 Unless localPort is specified, the program defaults to 41234
 */
 
