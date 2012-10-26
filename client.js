@@ -15,7 +15,9 @@ rather than just a LAN. This is not unlike Ross Bencina's OSCGroups.
 var net = require('net');
 var dgram = require('dgram');
 
-var netMessageQueue = [];
+var n2cMessageQueue = [];
+var c2nMessageQueue = [];
+
 var CLIENT_HOST = process.argv[2] || "192.168.2.2";
 var FROM_CLIENT_PORT = process.argv[3] || 51080;
 var TO_CLIENT_PORT = process.argv[4] || 51180;
@@ -35,20 +37,20 @@ var n2cCounter = 0;
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Periodically clears queue to a specified host and port
 (function (timeout, clientHost, clientPort) {
-	function clearNetQueue() {
+	function clearN2CQueue() {
 		var buffMessage = "";
-		if (netMessageQueue.length > 0) {
-			buffMessage = netMessageQueue.shift();
+		if (n2cMessageQueue.length > 0) {
+			buffMessage = n2cMessageQueue.shift();
 			n2cCounter++;
 			to_clientSocket.send(buffMessage, 0, buffMessage.length, clientPort, clientHost, function (err, bytes) {
 				console.log(".......NET-2-CLIENT clearQ message #" + n2cCounter + "  being sent to port " + clientPort);
-				clearNetQueue();
+				clearN2CQueue();
 			});
 		} else {
-			setTimeout(clearNetQueue, timeout);
+			setTimeout(clearN2CQueue, timeout);
 		}
 	}
-	clearNetQueue();
+	clearN2CQueue();
 }(10, CLIENT_HOST, TO_CLIENT_PORT));
 
 // Add a connect listener
@@ -60,7 +62,7 @@ netSocket.on('connect', function () {
 netSocket.on('data', function (data) {
 	var i, message;
 	message = data.toString();
-	netMessageQueue.push(data);
+	n2cMessageQueue.push(data);
 	console.log("gotMessage: " + message);
 });
 
@@ -75,33 +77,44 @@ netSocket.on('end', function () {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 // Sends a message to the server via sockets
-function sendMessageToServer(message) {
+function sendMessageToServer(message, cb) {
 	//console.log("Sending Message:");
 	//console.log(message);
-	netSocket.write(message);
+	netSocket.write(message, "UTF8", cb);
 }
+
+/////////////////////////////////////////////////////////////
+// Periodically clears queue to a specified host and port
+(function (timeout) {
+	function clearC2NQueue() {
+		var buffMessage = "";
+		if (c2nMessageQueue.length > 0) {
+			buffMessage = c2nMessageQueue.shift();
+			sendMessageToServer(buffMessage, function(err, bytes){
+				c2nCounter++;
+				console.log("   << send CLIENT-2-NET message: " + c2nCounter);
+				clearC2NQueue();
+			});
+		} else {
+			setTimeout(clearC2NQueue, timeout);
+		}
+	}
+	clearC2NQueue();
+}(10));
 
 
 from_clientSocket.on("message", function (msg, rinfo) {
 	//console.log("from_client message from " + rinfo.address + ":" + rinfo.port);
-	//console.log("   << CLIENT-2-NET message: " + msg);
-	c2nCounter++;
-	console.log("   << CLIENT-2-NET message: " + c2nCounter);
-	sendMessageToServer("--" + msg);
+	console.log("   << push CLIENT-2-NET message: " + msg);
+	c2nMessageQueue.push(msg);
+	
 });
 
-/* no such thing as a 'data' event on dgram sockets
-from_clientSocket.on("data", function (data) {
-	sendMessageToServer("msg");
-	console.log("from client got data: " + data);
-});
-*/
 
 from_clientSocket.on("listening", function () {
 	var address = from_clientSocket.address();
 	console.log("listening " + address.address + ":" + address.port);
 });
-
 
 
 from_clientSocket.bind(FROM_CLIENT_PORT);
