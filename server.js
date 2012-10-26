@@ -6,39 +6,56 @@ Unless localPort is specified, the program defaults to 8001
 var net = require('net');
 
 var LISTEN_PORT = process.argv[2] || 8001;
-var sockets = [];
+var socketRooms = {};
+var roomsBySocketId = [];
 var netMessageQueue = [];
 var currSockId = 0;
 
-// IMPORTANT: Adds field "oscId" to incoming sockets
+// TODO: When sockets are dropped, check if room is empty. If so, delete it?
+
+// IMPORTANT: Adds fields "oscId" and "room" to incoming sockets
+// IMPORTANT: Expects first message to be the name of the room
 var server = net.Server(function (socket) {
 	socket.oscId = currSockId;
 	currSockId += 1;
-	sockets.push(socket);
 
 	console.log("Yo ---------------------  : " + socket.toString());
 
 	socket.on('data', function (data) {
-		netMessageQueue.push({
-			data: data,
-			id: socket.oscId
-		});
-		console.log("Received message from client" + data);
+		var tempText;
+		if (socket.oscRoom) {
+			netMessageQueue.push({
+				data: data,
+				id: socket.oscId
+			});
+			console.log("Received message from client" + data);
+		} else {
+			tempText = data.toString();
+			console.log("Adding socket to room " + tempText);
+			if (!socketRooms[tempText]) {
+				socketRooms[tempText] = [];
+			}
+			socket.oscRoom = tempText;
+			socketRooms[tempText].push(socket);
+			roomsBySocketId[socket.oscId] = tempText;
+		}
 	});
 
 	socket.on('end', function () {
-		var i = sockets.indexOf(socket);
-		sockets.splice(i, 1);
+		var i = socketRooms[socket.oscRoom].indexOf(socket);
+		socketRooms[socket.oscRoom].splice(i, 1);
 		console.log("console: dropping client " + i);
 	});
 });
 
 // Sends to all sockets on list *except* the socket it came from
-var sendToClients = function (data, socketIdToSkip) {
+var sendToClientsInRoom = function (data, senderSocketId) {
 	var cleanup = []; // some sockets die without telling us about it.
 	var i;
+	var roomToSend = roomsBySocketId[senderSocketId];
+	var sockets = socketRooms[roomToSend];
 	for (i = 0; i < sockets.length; i += 1) {
-		if (sockets[i].oscId === socketIdToSkip)
+		if (sockets[i].oscId === senderSocketId)
 			continue;
 
 		if (sockets[i].writable) {
@@ -65,7 +82,7 @@ var sendToClients = function (data, socketIdToSkip) {
 		if (netMessageQueue.length > 0) {
 			console.log("clearing messagequeue");
 			netMessage = netMessageQueue.shift();
-			sendToClients(netMessage.data, netMessage.id);
+			sendToClientsInRoom(netMessage.data, netMessage.id);
 			clearNetQueue();
 		} else {
 			setTimeout(clearNetQueue, timeout);
@@ -82,6 +99,6 @@ console.log("Started listening for connections on port " + LISTEN_PORT);
 //var tfunc = function () {
 //	t += 5000;
 //	console.log("tick " + t);
-//	sendToClients("time " + t, null);
+//	sendToClientsInRoom("time " + t, null);
 //};
 //setInterval(tfunc, 5000);

@@ -1,7 +1,7 @@
 /*
 oscServer execution:
-node oscServer.js [clientHost] [from_clientPort] [to_clientPort] [remoteHost] [remotePort]
-Unless clientHost, clientPort, remoteHost and remotePort are specified, the
+node oscServer.js [clientHost] [from_clientPort] [to_clientPort] [remoteHost] [remotePort] [roomName]
+Unless clientHost, from_clientPort, to_clientPort, remoteHost, remotePort and roomName are specified, the
 program defaults to specified values.
 
 This program is a "helper" application that sets up a telnet connection with a server on the net,
@@ -23,13 +23,15 @@ var FROM_CLIENT_PORT = process.argv[3] || 51080;
 var TO_CLIENT_PORT = process.argv[4] || 51180;
 var REMOTE_HOST = process.argv[5] || "animatedsoundworks.com";
 var REMOTE_PORT = process.argv[6] || 8001;
+var ROOM_NAME = process.argv[7] || "public";
 
-var netSocket = net.connect(REMOTE_PORT, REMOTE_HOST);
 var to_clientSocket = dgram.createSocket("udp4");
 var from_clientSocket = dgram.createSocket("udp4");
 
 var c2nCounter = 0;
 var n2cCounter = 0;
+
+var isRoomConnected = false;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // This section of the code listens for messages from the server on the net,
@@ -52,6 +54,16 @@ var n2cCounter = 0;
 	}
 	clearN2CQueue();
 }(10, CLIENT_HOST, TO_CLIENT_PORT));
+
+function initConnection(netSocket) {
+	netSocket.write(ROOM_NAME, "UTF8", function () {
+		isRoomConnected = true;
+	});
+}
+
+var netSocket = net.connect(REMOTE_PORT, REMOTE_HOST, function () {
+	initConnection(netSocket);
+});
 
 // Add a connect listener
 netSocket.on('connect', function () {
@@ -80,7 +92,11 @@ netSocket.on('end', function () {
 function sendMessageToServer(message, cb) {
 	//console.log("Sending Message:");
 	//console.log(message);
-	netSocket.write(message, "UTF8", cb);
+	if (isRoomConnected) {
+		netSocket.write(message, "UTF8", cb);
+	} else {
+		cb();
+	}
 }
 
 /////////////////////////////////////////////////////////////
@@ -107,7 +123,6 @@ from_clientSocket.on("message", function (msg, rinfo) {
 	//console.log("from_client message from " + rinfo.address + ":" + rinfo.port);
 	console.log("   << push CLIENT-2-NET message: " + msg);
 	c2nMessageQueue.push(msg);
-	
 });
 
 
