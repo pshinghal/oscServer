@@ -26,8 +26,8 @@ var netSocket = net.connect(REMOTE_PORT, REMOTE_HOST);
 var to_clientSocket = dgram.createSocket("udp4");
 var from_clientSocket = dgram.createSocket("udp4");
 
-var c2nCounter=0;
-var n2cCounter=0;
+var c2nCounter = 0;
+var n2cCounter = 0;
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // This section of the code listens for messages from the server on the net,
@@ -58,16 +58,10 @@ netSocket.on('connect', function () {
 
 // Add a data listener
 netSocket.on('data', function (data) {
-	var i, charArray = [];
+	var i, message;
+	message = data.toString();
 	netMessageQueue.push(data);
-	/*
-	data.forEach(function (byte) {
-		charArray.push(String.fromCharCode(byte));
-	});
-*/
-	// console.log(charArray.join(""));
-
-	//console.log("data: " + data);
+	console.log("gotMessage: " + message);
 });
 
 // Add a disconnect listener
@@ -82,6 +76,8 @@ netSocket.on('end', function () {
 
 // Sends a message to the server via sockets
 function sendMessageToServer(message) {
+	//console.log("Sending Message:");
+	//console.log(message);
 	netSocket.write(message);
 }
 
