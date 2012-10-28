@@ -25,6 +25,8 @@ var REMOTE_HOST = process.argv[5] || "animatedsoundworks.com";
 var REMOTE_PORT = process.argv[6] || 8001;
 var ROOM_NAME = process.argv[7] || "public";
 
+var LENGTH_DIGITS = 4;
+
 var to_clientSocket = dgram.createSocket("udp4");
 var from_clientSocket = dgram.createSocket("udp4");
 
@@ -55,6 +57,19 @@ var isRoomConnected = false;
 	clearN2CQueue();
 }(10, CLIENT_HOST, TO_CLIENT_PORT));
 
+function splitMessages(message) {
+	var messages = [];
+	var index = 0;
+	var msgLength;
+	while (index < message.length) {
+		msgLength = parseInt(message.substring(index, index + 4), 10);
+		index += 4;
+		messages.push(message.substring(index, index + msgLength));
+		index += msgLength;
+	}
+	return messages;
+}
+
 function initConnection(netSocket) {
 	netSocket.write(ROOM_NAME, "UTF8", function () {
 		isRoomConnected = true;
@@ -74,7 +89,10 @@ netSocket.on('connect', function () {
 netSocket.on('data', function (data) {
 	var i, message;
 	message = data.toString();
-	n2cMessageQueue.push(data);
+	var messageSet = splitMessages(data.toString());
+	for (i = 0; i < messageSet.length; i += 1) {
+		n2cMessageQueue.push(new Buffer(messageSet[i]));
+	}
 	console.log("gotMessage: " + message);
 });
 
@@ -118,18 +136,27 @@ function sendMessageToServer(message, cb) {
 	clearC2NQueue();
 }(10));
 
+function padNumber(width, number) {
+	var numString = number.toString();
+	var numZeroes = width - numString.length;
+	var i;
+	for (i = 0; i < numZeroes; i += 1) {
+		numString = "0" + numString;
+	}
+	return numString;
+}
 
 from_clientSocket.on("message", function (msg, rinfo) {
+	var numHeader = padNumber(LENGTH_DIGITS, msg.length);
 	//console.log("from_client message from " + rinfo.address + ":" + rinfo.port);
 	console.log("   << push CLIENT-2-NET message: " + msg);
-	c2nMessageQueue.push(msg);
+	// When using a chat application, an extra newline character MAY be added.
+	c2nMessageQueue.push(new Buffer(numHeader + msg.toString()));
 });
-
 
 from_clientSocket.on("listening", function () {
 	var address = from_clientSocket.address();
 	console.log("listening " + address.address + ":" + address.port);
 });
-
 
 from_clientSocket.bind(FROM_CLIENT_PORT);
