@@ -45,7 +45,7 @@ var isRoomConnected = false;
 		var buffMessage = "";
 		if (n2cMessageQueue.length > 0) {
 			buffMessage = n2cMessageQueue.shift();
-			n2cCounter++;
+			n2cCounter += 1;
 			to_clientSocket.send(buffMessage, 0, buffMessage.length, clientPort, clientHost, function (err, bytes) {
 				console.log(".......NET-2-CLIENT clearQ message #" + n2cCounter + "  being sent to port " + clientPort);
 				clearN2CQueue();
@@ -57,14 +57,27 @@ var isRoomConnected = false;
 	clearN2CQueue();
 }(10, CLIENT_HOST, TO_CLIENT_PORT));
 
+var msgBacklog = "";
+
 function splitMessages(message) {
+	if (msgBacklog) {
+		message = msgBacklog + message;
+		msgBacklog = "";
+	}
 	var messages = [];
 	var index = 0;
 	var msgLength;
 	while (index < message.length) {
+		// TODO: Confirm the following condition:
+		if (message.length < index + 4) {
+			msgBacklog = message.substring(index, message.length);
+			return messages;
+		}
 		msgLength = parseInt(message.substring(index, index + 4), 10);
+		console.log(msgLength);
 		index += 4;
 		messages.push(message.substring(index, index + msgLength));
+		console.log(message.substring(index, index + msgLength));
 		index += msgLength;
 	}
 	return messages;
@@ -124,8 +137,8 @@ function sendMessageToServer(message, cb) {
 		var buffMessage = "";
 		if (c2nMessageQueue.length > 0) {
 			buffMessage = c2nMessageQueue.shift();
-			sendMessageToServer(buffMessage, function(err, bytes){
-				c2nCounter++;
+			sendMessageToServer(buffMessage, function (err, bytes) {
+				c2nCounter += 1;
 				console.log("   << send CLIENT-2-NET message: " + c2nCounter);
 				clearC2NQueue();
 			});
