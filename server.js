@@ -28,7 +28,7 @@ var server = net.Server(function (socket) {
 				data: data,
 				id: socket.oscId
 			});
-			console.log("Received message from client" + data);
+			console.log("Received message from client: " + data);
 		} else {
 			tempText = data.toString();
 			console.log("Adding socket to room " + tempText);
