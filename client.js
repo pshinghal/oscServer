@@ -163,6 +163,8 @@ function padNumber(width, number) {
 from_clientSocket.on("message", function (msg, rinfo) {
 	var numHeader = padNumber(LENGTH_DIGITS, msg.length);
 	//console.log("from_client message from " + rinfo.address + ":" + rinfo.port);
+	console.log("Actual message:");
+	console.log(msg);
 	console.log("   << push CLIENT-2-NET message: " + msg);
 	// When using a chat application, an extra newline character MAY be added.
 	c2nMessageQueue.push(new Buffer(numHeader + msg.toString()));
