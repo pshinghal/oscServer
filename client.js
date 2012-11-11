@@ -166,7 +166,7 @@ from_clientSocket.on("message", function (msg, rinfo) {
 	console.log("   << push CLIENT-2-NET message: " + msg);
 	// When using a chat application, an extra newline character MAY be added.
 	c2nMessageQueue.push(new Buffer(numHeader + msg.toString()));
-	console.log("Length of message from client: " + msg.toString().length);
+	console.log("Length of message from client: " + msg.toString().length + " other " + msg.length);
 });
 
 from_clientSocket.on("listening", function () {
